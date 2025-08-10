@@ -24,8 +24,7 @@
             const [income, setIncome] = useState([]);
             const [currentView, setCurrentView] = useState('input');
             const [loading, setLoading] = useState(false);
-            // Replace YOUR_APPS_SCRIPT_URL_HERE with your actual Google Apps Script URL
-            const [apiUrl, setApiUrl] = useState('YOUR_APPS_SCRIPT_URL_HERE');
+            const [apiUrl, setApiUrl] = useState('');
             const [showSetup, setShowSetup] = useState(false);
             const [newExpense, setNewExpense] = useState({
                 date: new Date().toISOString().split('T')[0],
@@ -45,20 +44,15 @@
                 'Bills & Utilities', 'Healthcare', 'Education', 'Travel', 'Other'
             ];
 
-            // Load API URL from local storage or use hard-coded URL
+            // Load API URL from browser storage on first load
             useEffect(() => {
-                // If you hard-coded your URL above, it will skip the setup screen
-                if (apiUrl && apiUrl !== 'YOUR_APPS_SCRIPT_URL_HERE') {
+                const savedUrl = localStorage.getItem('budgetTrackerApiUrl');
+                if (savedUrl) {
+                    setApiUrl(savedUrl);
                     setShowSetup(false);
-                    loadData(apiUrl);
+                    loadData(savedUrl);
                 } else {
-                    const savedUrl = localStorage.getItem('budgetTrackerApiUrl');
-                    if (savedUrl) {
-                        setApiUrl(savedUrl);
-                        loadData(savedUrl);
-                    } else {
-                        setShowSetup(true);
-                    }
+                    setShowSetup(true);
                 }
             }, []);
 
@@ -309,7 +303,7 @@
                             
                             <div className="mt-4 p-4 bg-gray-50 rounded">
                                 <p className="text-sm text-gray-600">
-                                    <strong>Need help?</strong> Follow the setup instructions to create your Google Sheets backend and get your URL.
+                                    <strong>Need help?</strong> Create a Google Apps Script with your spreadsheet, deploy it as a web app, and paste the URL here to sync your budget data.
                                 </p>
                             </div>
                         </div>
@@ -598,7 +592,7 @@
                                     </button>
                                 </div>
                             </div>
-                            {apiUrl && apiUrl !== 'YOUR_APPS_SCRIPT_URL_HERE' && (
+                            {apiUrl && (
                                 <div className="mt-2 flex items-center text-sm text-green-600">
                                     <Cloud className="h-4 w-4 mr-1" />
                                     Connected to Google Sheets
