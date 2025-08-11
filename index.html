@@ -1,708 +1,649 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Personal Budget Tracker</title>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/recharts@1.8.5/umd/Recharts.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Budget Tracker</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-  <div id="root"></div>
+    <div id="root"></div>
 
-  <script type="text/babel">
-    /**************************************************************************
-     * BudgetTracker - fully preserved app logic, adapted for CDN/UMD usage
-     * - Uses window.Recharts for charts
-     * - Uses lucide (vanilla) icons via <i data-lucide="name"> and lucide.createIcons()
-     **************************************************************************/
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } = Recharts;
+        const { Calendar, DollarSign, PlusCircle, Trash2, TrendingUp, Wallet, Settings, RefreshCw, Cloud } = LucideReact;
 
-    const { useState, useMemo, useEffect } = React;
-
-    // Recharts components from UMD (window.Recharts)
-    const {
-      BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-      LineChart, Line, PieChart, Pie, Cell, Legend
-    } = window.Recharts || {};
-
-    // Helper: ensure Recharts loaded
-    if (!window.Recharts) {
-      console.error('Recharts is not available. If charts fail, try a different Recharts UMD version.');
-    }
-
-    function BudgetTracker() {
-      // === state ===
-      const [expenses, setExpenses] = useState([]);
-      const [income, setIncome] = useState([]);
-      const [currentView, setCurrentView] = useState('input');
-      const [loading, setLoading] = useState(false);
-      const [apiUrl, setApiUrl] = useState('');
-      const [showSetup, setShowSetup] = useState(false);
-
-      const [newExpense, setNewExpense] = useState({
-        date: new Date().toISOString().split('T')[0],
-        category: '',
-        amount: '',
-        description: ''
-      });
-
-      const [newIncome, setNewIncome] = useState({
-        date: new Date().toISOString().split('T')[0],
-        source: '',
-        amount: '',
-        description: ''
-      });
-
-      const categories = [
-        'Food & Dining', 'Transportation', 'Shopping', 'Entertainment',
-        'Bills & Utilities', 'Healthcare', 'Education', 'Travel', 'Other'
-      ];
-
-      // Create Lucide icons after render / whenever relevant data changes
-      useEffect(() => {
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-          // replace icons in DOM
-          window.lucide.createIcons();
-        }
-      }, [expenses, income, currentView, loading, apiUrl, showSetup]);
-
-      // Load API URL and data on mount
-      useEffect(() => {
-        const savedUrl = localStorage.getItem('budgetTrackerApiUrl');
-        console.log(savedUrl);
-        if (savedUrl) {
-          setApiUrl(savedUrl);
-          setShowSetup(false);
-          loadData(savedUrl);
-        } else {
-          setShowSetup(true);
-        }
-      }, []);
-
-      // === API / Google Apps Script interactions ===
-      const saveApiUrl = () => {
-        if (apiUrl.trim()) {
-          localStorage.setItem('budgetTrackerApiUrl', apiUrl.trim());
-          setShowSetup(false);
-          loadData(apiUrl.trim());
-        }
-      };
-
-      const loadData = async (url) => {
-        setLoading(true);
-        try {
-          const response = await fetch(url);
-          const data = await response.json();
-          if (data && data.expenses && data.income) {
-            // ensure amounts are numbers
-            setExpenses(data.expenses.map(e => ({ ...e, amount: Number(e.amount) })));
-            setIncome(data.income.map(i => ({ ...i, amount: Number(i.amount) })));
-          } else {
-            // handle case where data shape differs
-            if (data && Array.isArray(data.expenses)) setExpenses(data.expenses);
-            if (data && Array.isArray(data.income)) setIncome(data.income);
-          }
-        } catch (error) {
-          console.error('loadData error', error);
-          alert('Failed to load data. Please check your API URL.');
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      const apiCall = async (action, data = {}) => {
-        if (!apiUrl) {
-          alert('Please set up your Google Sheets API URL first.');
-          setShowSetup(true);
-          return null;
-        }
-
-        setLoading(true);
-        try {
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, ...data })
-          });
-          const result = await response.json();
-          return result;
-        } catch (error) {
-          console.error('apiCall error', error);
-          alert('Failed to sync with Google Sheets. Please check your connection.');
-          return null;
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      // === CRUD actions ===
-      const addExpense = async () => {
-        if (newExpense.category && newExpense.amount) {
-          const payload = { ...newExpense, amount: String(newExpense.amount) };
-          const result = await apiCall('addExpense', payload);
-          if (result && result.success) {
-            const newExp = {
-              ...newExpense,
-              id: result.id,
-              amount: parseFloat(newExpense.amount)
-            };
-            setExpenses(prev => [...prev, newExp]);
-            setNewExpense({
-              date: new Date().toISOString().split('T')[0],
-              category: '',
-              amount: '',
-              description: ''
+        const BudgetTracker = () => {
+            const [expenses, setExpenses] = useState([]);
+            const [income, setIncome] = useState([]);
+            const [currentView, setCurrentView] = useState('input');
+            const [loading, setLoading] = useState(false);
+            const [apiUrl, setApiUrl] = useState('');
+            const [showSetup, setShowSetup] = useState(false);
+            const [newExpense, setNewExpense] = useState({
+                date: new Date().toISOString().split('T')[0],
+                category: '',
+                amount: '',
+                description: ''
             });
-          }
-        }
-      };
-
-      const addIncome = async () => {
-        if (newIncome.source && newIncome.amount) {
-          const payload = { ...newIncome, amount: String(newIncome.amount) };
-          const result = await apiCall('addIncome', payload);
-          if (result && result.success) {
-            const newInc = {
-              ...newIncome,
-              id: result.id,
-              amount: parseFloat(newIncome.amount)
-            };
-            setIncome(prev => [...prev, newInc]);
-            setNewIncome({
-              date: new Date().toISOString().split('T')[0],
-              source: '',
-              amount: '',
-              description: ''
+            const [newIncome, setNewIncome] = useState({
+                date: new Date().toISOString().split('T')[0],
+                source: '',
+                amount: '',
+                description: ''
             });
-          }
-        }
-      };
 
-      const removeExpense = async (id) => {
-        const result = await apiCall('deleteExpense', { id });
-        if (result && result.success) {
-          setExpenses(prev => prev.filter(exp => exp.id !== id));
-        }
-      };
+            const categories = [
+                'Food & Dining', 'Transportation', 'Shopping', 'Entertainment', 
+                'Bills & Utilities', 'Healthcare', 'Education', 'Travel', 'Other'
+            ];
 
-      const removeIncome = async (id) => {
-        const result = await apiCall('deleteIncome', { id });
-        if (result && result.success) {
-          setIncome(prev => prev.filter(inc => inc.id !== id));
-        }
-      };
+            // Load API URL from browser storage on first load
+            useEffect(() => {
+                const savedUrl = localStorage.getItem('budgetTrackerApiUrl');
+                if (savedUrl) {
+                    setApiUrl(savedUrl);
+                    setShowSetup(false);
+                    loadData(savedUrl);
+                } else {
+                    setShowSetup(true);
+                }
+            }, []);
 
-      const refreshData = () => {
-        if (apiUrl) loadData(apiUrl);
-      };
+            const saveApiUrl = () => {
+                if (apiUrl.trim()) {
+                    localStorage.setItem('budgetTrackerApiUrl', apiUrl.trim());
+                    setShowSetup(false);
+                    loadData(apiUrl.trim());
+                }
+            };
 
-      // === Data aggregation helpers (kept identical to your originals) ===
-      const getWeeklyData = useMemo(() => {
-        const weeklyExpenses = {};
-        const weeklyIncome = {};
+            const loadData = async (url) => {
+                setLoading(true);
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.expenses && data.income) {
+                        setExpenses(data.expenses);
+                        setIncome(data.income);
+                    }
+                } catch (error) {
+                    alert('Failed to load data. Please check your API URL.');
+                }
+                setLoading(false);
+            };
 
-        expenses.forEach(expense => {
-          const date = new Date(expense.date);
-          const weekStart = new Date(date);
-          weekStart.setDate(date.getDate() - date.getDay());
-          const weekKey = weekStart.toISOString().split('T')[0];
+            const apiCall = async (action, data = {}) => {
+                if (!apiUrl) {
+                    alert('Please set up your Google Sheets API URL first.');
+                    setShowSetup(true);
+                    return null;
+                }
 
-          if (!weeklyExpenses[weekKey]) weeklyExpenses[weekKey] = 0;
-          weeklyExpenses[weekKey] += Number(expense.amount);
-        });
+                setLoading(true);
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ action, ...data })
+                    });
+                    const result = await response.json();
+                    return result;
+                } catch (error) {
+                    alert('Failed to sync with Google Sheets. Please check your connection.');
+                    return null;
+                } finally {
+                    setLoading(false);
+                }
+            };
 
-        income.forEach(inc => {
-          const date = new Date(inc.date);
-          const weekStart = new Date(date);
-          weekStart.setDate(date.getDate() - date.getDay());
-          const weekKey = weekStart.toISOString().split('T')[0];
+            const addExpense = async () => {
+                if (newExpense.category && newExpense.amount) {
+                    const result = await apiCall('addExpense', newExpense);
+                    if (result && result.success) {
+                        const newExp = {
+                            ...newExpense,
+                            id: result.id,
+                            amount: parseFloat(newExpense.amount)
+                        };
+                        setExpenses([...expenses, newExp]);
+                        setNewExpense({
+                            date: new Date().toISOString().split('T')[0],
+                            category: '',
+                            amount: '',
+                            description: ''
+                        });
+                    }
+                }
+            };
 
-          if (!weeklyIncome[weekKey]) weeklyIncome[weekKey] = 0;
-          weeklyIncome[weekKey] += Number(inc.amount);
-        });
+            const addIncome = async () => {
+                if (newIncome.source && newIncome.amount) {
+                    const result = await apiCall('addIncome', newIncome);
+                    if (result && result.success) {
+                        const newInc = {
+                            ...newIncome,
+                            id: result.id,
+                            amount: parseFloat(newIncome.amount)
+                        };
+                        setIncome([...income, newInc]);
+                        setNewIncome({
+                            date: new Date().toISOString().split('T')[0],
+                            source: '',
+                            amount: '',
+                            description: ''
+                        });
+                    }
+                }
+            };
 
-        const allWeeks = new Set([...Object.keys(weeklyExpenses), ...Object.keys(weeklyIncome)]);
+            const removeExpense = async (id) => {
+                const result = await apiCall('deleteExpense', { id });
+                if (result && result.success) {
+                    setExpenses(expenses.filter(exp => exp.id !== id));
+                }
+            };
 
-        return Array.from(allWeeks).sort().map(week => ({
-          week: `Week of ${new Date(week).toLocaleDateString()}`,
-          expenses: weeklyExpenses[week] || 0,
-          income: weeklyIncome[week] || 0,
-          savings: (weeklyIncome[week] || 0) - (weeklyExpenses[week] || 0)
-        }));
-      }, [expenses, income]);
+            const removeIncome = async (id) => {
+                const result = await apiCall('deleteIncome', { id });
+                if (result && result.success) {
+                    setIncome(income.filter(inc => inc.id !== id));
+                }
+            };
 
-      const getMonthlyData = useMemo(() => {
-        const monthlyExpenses = {};
-        const monthlyIncome = {};
+            const refreshData = () => {
+                if (apiUrl) {
+                    loadData(apiUrl);
+                }
+            };
 
-        expenses.forEach(expense => {
-          const date = new Date(expense.date);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            // Data processing functions
+            const getWeeklyData = useMemo(() => {
+                const weeklyExpenses = {};
+                const weeklyIncome = {};
+                
+                expenses.forEach(expense => {
+                    const date = new Date(expense.date);
+                    const weekStart = new Date(date);
+                    weekStart.setDate(date.getDate() - date.getDay());
+                    const weekKey = weekStart.toISOString().split('T')[0];
+                    
+                    if (!weeklyExpenses[weekKey]) weeklyExpenses[weekKey] = 0;
+                    weeklyExpenses[weekKey] += expense.amount;
+                });
 
-          if (!monthlyExpenses[monthKey]) monthlyExpenses[monthKey] = 0;
-          monthlyExpenses[monthKey] += Number(expense.amount);
-        });
+                income.forEach(inc => {
+                    const date = new Date(inc.date);
+                    const weekStart = new Date(date);
+                    weekStart.setDate(date.getDate() - date.getDay());
+                    const weekKey = weekStart.toISOString().split('T')[0];
+                    
+                    if (!weeklyIncome[weekKey]) weeklyIncome[weekKey] = 0;
+                    weeklyIncome[weekKey] += inc.amount;
+                });
 
-        income.forEach(inc => {
-          const date = new Date(inc.date);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                const allWeeks = new Set([...Object.keys(weeklyExpenses), ...Object.keys(weeklyIncome)]);
+                
+                return Array.from(allWeeks).sort().map(week => ({
+                    week: `Week of ${new Date(week).toLocaleDateString()}`,
+                    expenses: weeklyExpenses[week] || 0,
+                    income: weeklyIncome[week] || 0,
+                    savings: (weeklyIncome[week] || 0) - (weeklyExpenses[week] || 0)
+                }));
+            }, [expenses, income]);
 
-          if (!monthlyIncome[monthKey]) monthlyIncome[monthKey] = 0;
-          monthlyIncome[monthKey] += Number(inc.amount);
-        });
+            const getMonthlyData = useMemo(() => {
+                const monthlyExpenses = {};
+                const monthlyIncome = {};
+                
+                expenses.forEach(expense => {
+                    const date = new Date(expense.date);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyExpenses[monthKey]) monthlyExpenses[monthKey] = 0;
+                    monthlyExpenses[monthKey] += expense.amount;
+                });
 
-        const allMonths = new Set([...Object.keys(monthlyExpenses), ...Object.keys(monthlyIncome)]);
+                income.forEach(inc => {
+                    const date = new Date(inc.date);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyIncome[monthKey]) monthlyIncome[monthKey] = 0;
+                    monthlyIncome[monthKey] += inc.amount;
+                });
 
-        return Array.from(allMonths).sort().map(month => ({
-          month: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
-          expenses: monthlyExpenses[month] || 0,
-          income: monthlyIncome[month] || 0,
-          savings: (monthlyIncome[month] || 0) - (monthlyExpenses[month] || 0)
-        }));
-      }, [expenses, income]);
+                const allMonths = new Set([...Object.keys(monthlyExpenses), ...Object.keys(monthlyIncome)]);
+                
+                return Array.from(allMonths).sort().map(month => ({
+                    month: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+                    expenses: monthlyExpenses[month] || 0,
+                    income: monthlyIncome[month] || 0,
+                    savings: (monthlyIncome[month] || 0) - (monthlyExpenses[month] || 0)
+                }));
+            }, [expenses, income]);
 
-      const getYearlyData = useMemo(() => {
-        const yearlyExpenses = {};
-        const yearlyIncome = {};
+            const getYearlyData = useMemo(() => {
+                const yearlyExpenses = {};
+                const yearlyIncome = {};
+                
+                expenses.forEach(expense => {
+                    const year = new Date(expense.date).getFullYear();
+                    if (!yearlyExpenses[year]) yearlyExpenses[year] = 0;
+                    yearlyExpenses[year] += expense.amount;
+                });
 
-        expenses.forEach(expense => {
-          const year = new Date(expense.date).getFullYear();
-          if (!yearlyExpenses[year]) yearlyExpenses[year] = 0;
-          yearlyExpenses[year] += Number(expense.amount);
-        });
+                income.forEach(inc => {
+                    const year = new Date(inc.date).getFullYear();
+                    if (!yearlyIncome[year]) yearlyIncome[year] = 0;
+                    yearlyIncome[year] += inc.amount;
+                });
 
-        income.forEach(inc => {
-          const year = new Date(inc.date).getFullYear();
-          if (!yearlyIncome[year]) yearlyIncome[year] = 0;
-          yearlyIncome[year] += Number(inc.amount);
-        });
+                const allYears = new Set([...Object.keys(yearlyExpenses), ...Object.keys(yearlyIncome)]);
+                
+                return Array.from(allYears).sort().map(year => ({
+                    year: year.toString(),
+                    expenses: yearlyExpenses[year] || 0,
+                    income: yearlyIncome[year] || 0,
+                    savings: (yearlyIncome[year] || 0) - (yearlyExpenses[year] || 0)
+                }));
+            }, [expenses, income]);
 
-        const allYears = new Set([...Object.keys(yearlyExpenses), ...Object.keys(yearlyIncome)]);
+            const getCategoryData = useMemo(() => {
+                const categoryTotals = {};
+                expenses.forEach(expense => {
+                    if (!categoryTotals[expense.category]) categoryTotals[expense.category] = 0;
+                    categoryTotals[expense.category] += expense.amount;
+                });
 
-        return Array.from(allYears).sort().map(year => ({
-          year: year.toString(),
-          expenses: yearlyExpenses[year] || 0,
-          income: yearlyIncome[year] || 0,
-          savings: (yearlyIncome[year] || 0) - (yearlyExpenses[year] || 0)
-        }));
-      }, [expenses, income]);
+                return Object.entries(categoryTotals).map(([category, amount]) => ({
+                    category,
+                    amount
+                }));
+            }, [expenses]);
 
-      const getCategoryData = useMemo(() => {
-        const categoryTotals = {};
-        expenses.forEach(expense => {
-          if (!categoryTotals[expense.category]) categoryTotals[expense.category] = 0;
-          categoryTotals[expense.category] += Number(expense.amount);
-        });
+            const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
+            const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const totalSavings = totalIncome - totalExpenses;
 
-        return Object.entries(categoryTotals).map(([category, amount]) => ({
-          category,
-          amount
-        }));
-      }, [expenses]);
+            const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
 
-      const totalIncome = income.reduce((sum, inc) => sum + Number(inc.amount), 0);
-      const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
-      const totalSavings = totalIncome - totalExpenses;
-
-      const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
-
-      // === UI subcomponents (render functions) - ICONS use <i data-lucide="..."> ===
-
-      if (showSetup) {
-        return (
-          <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-            <div className="max-w-md w-full bg-white p-6 rounded-lg shadow">
-              <div className="text-center mb-6">
-                <i data-lucide="cloud" className="h-12 w-12 text-blue-500 mx-auto mb-2"></i>
-                <h2 className="text-2xl font-bold text-gray-900">Connect to Google Sheets</h2>
-                <p className="text-gray-600 mt-2">Enter your Google Apps Script Web App URL to sync your budget data</p>
-              </div>
-
-              <div className="space-y-4">
-                <input
-                  type="url"
-                  placeholder="https://script.google.com/macros/s/YOUR_ID/exec"
-                  value={apiUrl}
-                  onChange={(e) => setApiUrl(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={saveApiUrl}
-                  className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
-                >
-                  Connect to Google Sheets
-                </button>
-              </div>
-
-              <div className="mt-4 p-4 bg-gray-50 rounded">
-                <p className="text-sm text-gray-600">
-                  <strong>Need help?</strong> Create a Google Apps Script with your spreadsheet, deploy it as a web app, and paste the URL here to sync your budget data.
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      const renderInputView = () => (
-        <div className="space-y-8">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-              <div className="flex items-center">
-                <i data-lucide="trending-up" className="h-8 w-8 text-green-600 mr-3"></i>
-                <div>
-                  <p className="text-sm font-medium text-green-600">Total Income</p>
-                  <p className="text-2xl font-bold text-green-800">${totalIncome.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-red-50 p-6 rounded-lg border border-red-200">
-              <div className="flex items-center">
-                <i data-lucide="dollar-sign" className="h-8 w-8 text-red-600 mr-3"></i>
-                <div>
-                  <p className="text-sm font-medium text-red-600">Total Expenses</p>
-                  <p className="text-2xl font-bold text-red-800">${totalExpenses.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className={`p-6 rounded-lg border ${totalSavings >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
-              <div className="flex items-center">
-                <i data-lucide="wallet" className={`h-8 w-8 mr-3 ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}></i>
-                <div>
-                  <p className={`text-sm font-medium ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                    {totalSavings >= 0 ? 'Total Savings' : 'Budget Deficit'}
-                  </p>
-                  <p className={`text-2xl font-bold ${totalSavings >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
-                    ${Math.abs(totalSavings).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Income Input */}
-          <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <i data-lucide="trending-up" className="h-5 w-5 mr-2 text-green-600"></i>
-              Add Income
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input
-                type="date"
-                value={newIncome.date}
-                onChange={(e) => setNewIncome({...newIncome, date: e.target.value})}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                type="text"
-                placeholder="Income source"
-                value={newIncome.source}
-                onChange={(e) => setNewIncome({...newIncome, source: e.target.value})}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                type="number"
-                placeholder="Amount"
-                value={newIncome.amount}
-                onChange={(e) => setNewIncome({...newIncome, amount: e.target.value})}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                step="0.01"
-              />
-              <button
-                onClick={addIncome}
-                disabled={loading}
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center justify-center disabled:opacity-50"
-              >
-                <i data-lucide="plus-circle" className="h-4 w-4 mr-2"></i>
-                Add Income
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Description (optional)"
-              value={newIncome.description}
-              onChange={(e) => setNewIncome({...newIncome, description: e.target.value})}
-              className="w-full mt-3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          {/* Expense Input */}
-          <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <i data-lucide="dollar-sign" className="h-5 w-5 mr-2 text-red-600"></i>
-              Add Expense
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input
-                type="date"
-                value={newExpense.date}
-                onChange={(e) => setNewExpense({...newExpense, date: e.target.value})}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <select
-                value={newExpense.category}
-                onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Category</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                placeholder="Amount"
-                value={newExpense.amount}
-                onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                step="0.01"
-              />
-              <button
-                onClick={addExpense}
-                disabled={loading}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors flex items-center justify-center disabled:opacity-50"
-              >
-                <i data-lucide="plus-circle" className="h-4 w-4 mr-2"></i>
-                Add Expense
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Description (optional)"
-              value={newExpense.description}
-              onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
-              className="w-full mt-3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Recent Transactions */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Recent Income */}
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h3 className="text-lg font-semibold mb-4 text-green-700">Recent Income</h3>
-              <div className="max-h-64 overflow-y-auto">
-                {income.length === 0 ? (
-                  <p className="text-gray-500">No income recorded yet</p>
-                ) : (
-                  income.slice(-5).reverse().map(inc => (
-                    <div key={inc.id} className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <div>
-                        <p className="font-medium">{inc.source}</p>
-                        <p className="text-sm text-gray-600">{new Date(inc.date).toLocaleDateString()}</p>
-                        {inc.description && <p className="text-sm text-gray-500">{inc.description}</p>}
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-green-600 font-bold mr-2">${Number(inc.amount).toFixed(2)}</span>
-                        <button
-                          onClick={() => removeIncome(inc.id)}
-                          disabled={loading}
-                          className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                        >
-                          <i data-lucide="trash-2" className="h-4 w-4"></i>
-                        </button>
-                      </div>
+            if (showSetup) {
+                return (
+                    <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+                        <div className="max-w-md w-full bg-white p-6 rounded-lg shadow">
+                            <div className="text-center mb-6">
+                                <Cloud className="h-12 w-12 text-blue-500 mx-auto mb-2" />
+                                <h2 className="text-2xl font-bold text-gray-900">Connect to Google Sheets</h2>
+                                <p className="text-gray-600 mt-2">Enter your Google Apps Script Web App URL to sync your budget data</p>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <input
+                                    type="url"
+                                    placeholder="https://script.google.com/macros/s/YOUR_ID/exec"
+                                    value={apiUrl}
+                                    onChange={(e) => setApiUrl(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button
+                                    onClick={saveApiUrl}
+                                    className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
+                                >
+                                    Connect to Google Sheets
+                                </button>
+                            </div>
+                            
+                            <div className="mt-4 p-4 bg-gray-50 rounded">
+                                <p className="text-sm text-gray-600">
+                                    <strong>Need help?</strong> Create a Google Apps Script with your spreadsheet, deploy it as a web app, and paste the URL here to sync your budget data.
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
+                );
+            }
 
-            {/* Recent Expenses */}
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h3 className="text-lg font-semibold mb-4 text-red-700">Recent Expenses</h3>
-              <div className="max-h-64 overflow-y-auto">
-                {expenses.length === 0 ? (
-                  <p className="text-gray-500">No expenses recorded yet</p>
-                ) : (
-                  expenses.slice(-5).reverse().map(expense => (
-                    <div key={expense.id} className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <div>
-                        <p className="font-medium">{expense.category}</p>
-                        <p className="text-sm text-gray-600">{new Date(expense.date).toLocaleDateString()}</p>
-                        {expense.description && <p className="text-sm text-gray-500">{expense.description}</p>}
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-red-600 font-bold mr-2">${Number(expense.amount).toFixed(2)}</span>
-                        <button
-                          onClick={() => removeExpense(expense.id)}
-                          disabled={loading}
-                          className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                        >
-                          <i data-lucide="trash-2" className="h-4 w-4"></i>
-                        </button>
-                      </div>
+            const renderInputView = () => (
+                <div className="space-y-8">
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                            <div className="flex items-center">
+                                <TrendingUp className="h-8 w-8 text-green-600 mr-3" />
+                                <div>
+                                    <p className="text-sm font-medium text-green-600">Total Income</p>
+                                    <p className="text-2xl font-bold text-green-800">${totalIncome.toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-red-50 p-6 rounded-lg border border-red-200">
+                            <div className="flex items-center">
+                                <DollarSign className="h-8 w-8 text-red-600 mr-3" />
+                                <div>
+                                    <p className="text-sm font-medium text-red-600">Total Expenses</p>
+                                    <p className="text-2xl font-bold text-red-800">${totalExpenses.toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={`p-6 rounded-lg border ${totalSavings >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
+                            <div className="flex items-center">
+                                <Wallet className={`h-8 w-8 mr-3 ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
+                                <div>
+                                    <p className={`text-sm font-medium ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                        {totalSavings >= 0 ? 'Total Savings' : 'Budget Deficit'}
+                                    </p>
+                                    <p className={`text-2xl font-bold ${totalSavings >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
+                                        ${Math.abs(totalSavings).toFixed(2)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
 
-      const renderChartView = (data, title, timeKey) => (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-xl font-semibold mb-6">{title}</h3>
-            <div style={{ width: '100%', height: 400 }}>
-              { BarChart ? (
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey={timeKey} />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
-                    <Bar dataKey="income" fill="#10b981" name="Income" />
-                    <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
-                    <Bar dataKey="savings" fill="#3b82f6" name="Net Savings" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="text-sm text-gray-500">Charts unavailable (Recharts failed to load)</div>
-              )}
-            </div>
-          </div>
+                    {/* Income Input */}
+                    <div className="bg-white p-6 rounded-lg shadow border">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center">
+                            <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                            Add Income
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input
+                                type="date"
+                                value={newIncome.date}
+                                onChange={(e) => setNewIncome({...newIncome, date: e.target.value})}
+                                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Income source"
+                                value={newIncome.source}
+                                onChange={(e) => setNewIncome({...newIncome, source: e.target.value})}
+                                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                            <input
+                                type="number"
+                                placeholder="Amount"
+                                value={newIncome.amount}
+                                onChange={(e) => setNewIncome({...newIncome, amount: e.target.value})}
+                                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                step="0.01"
+                            />
+                            <button
+                                onClick={addIncome}
+                                disabled={loading}
+                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center justify-center disabled:opacity-50"
+                            >
+                                <PlusCircle className="h-4 w-4 mr-2" />
+                                Add Income
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Description (optional)"
+                            value={newIncome.description}
+                            onChange={(e) => setNewIncome({...newIncome, description: e.target.value})}
+                            className="w-full mt-3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                    </div>
 
-          <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-xl font-semibold mb-6">Savings Trend</h3>
-            <div style={{ width: '100%', height: 300 }}>
-              { LineChart ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey={timeKey} />
-                    <YAxis />
-                    <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
-                    <Line type="monotone" dataKey="savings" stroke="#3b82f6" strokeWidth={2} name="Savings" />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="text-sm text-gray-500">Charts unavailable (Recharts failed to load)</div>
-              )}
-            </div>
-          </div>
+                    {/* Expense Input */}
+                    <div className="bg-white p-6 rounded-lg shadow border">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center">
+                            <DollarSign className="h-5 w-5 mr-2 text-red-600" />
+                            Add Expense
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input
+                                type="date"
+                                value={newExpense.date}
+                                onChange={(e) => setNewExpense({...newExpense, date: e.target.value})}
+                                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <select
+                                value={newExpense.category}
+                                onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">Select Category</option>
+                                {categories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="number"
+                                placeholder="Amount"
+                                value={newExpense.amount}
+                                onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                                className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                step="0.01"
+                            />
+                            <button
+                                onClick={addExpense}
+                                disabled={loading}
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors flex items-center justify-center disabled:opacity-50"
+                            >
+                                <PlusCircle className="h-4 w-4 mr-2" />
+                                Add Expense
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Description (optional)"
+                            value={newExpense.description}
+                            onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                            className="w-full mt-3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
 
-          {currentView === 'monthly' && getCategoryData.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h3 className="text-xl font-semibold mb-6">Expenses by Category</h3>
-              <div style={{ width: '100%', height: 400 }}>
-                { PieChart ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <PieChart>
-                      <Pie
-                        data={getCategoryData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent, category }) => `${category} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={120}
-                        fill="#8884d8"
-                        dataKey="amount"
-                      >
-                        {getCategoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-sm text-gray-500">Charts unavailable (Recharts failed to load)</div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      );
+                    {/* Recent Transactions */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Recent Income */}
+                        <div className="bg-white p-6 rounded-lg shadow border">
+                            <h3 className="text-lg font-semibold mb-4 text-green-700">Recent Income</h3>
+                            <div className="max-h-64 overflow-y-auto">
+                                {income.length === 0 ? (
+                                    <p className="text-gray-500">No income recorded yet</p>
+                                ) : (
+                                    income.slice(-5).reverse().map(inc => (
+                                        <div key={inc.id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                                            <div>
+                                                <p className="font-medium">{inc.source}</p>
+                                                <p className="text-sm text-gray-600">{new Date(inc.date).toLocaleDateString()}</p>
+                                                {inc.description && <p className="text-sm text-gray-500">{inc.description}</p>}
+                                            </div>
+                                            <div className="flex items-center">
+                                                <span className="text-green-600 font-bold mr-2">${inc.amount.toFixed(2)}</span>
+                                                <button
+                                                    onClick={() => removeIncome(inc.id)}
+                                                    disabled={loading}
+                                                    className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
 
-      // === main render ===
-      return (
-        <div className="min-h-screen bg-gray-50 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">Personal Budget Tracker</h1>
-                  <p className="text-gray-600">Track your expenses, income, and savings with Google Sheets sync</p>
+                        {/* Recent Expenses */}
+                        <div className="bg-white p-6 rounded-lg shadow border">
+                            <h3 className="text-lg font-semibold mb-4 text-red-700">Recent Expenses</h3>
+                            <div className="max-h-64 overflow-y-auto">
+                                {expenses.length === 0 ? (
+                                    <p className="text-gray-500">No expenses recorded yet</p>
+                                ) : (
+                                    expenses.slice(-5).reverse().map(expense => (
+                                        <div key={expense.id} className="flex justify-between items-center py-2 border-b border-gray-100">
+                                            <div>
+                                                <p className="font-medium">{expense.category}</p>
+                                                <p className="text-sm text-gray-600">{new Date(expense.date).toLocaleDateString()}</p>
+                                                {expense.description && <p className="text-sm text-gray-500">{expense.description}</p>}
+                                            </div>
+                                            <div className="flex items-center">
+                                                <span className="text-red-600 font-bold mr-2">${expense.amount.toFixed(2)}</span>
+                                                <button
+                                                    onClick={() => removeExpense(expense.id)}
+                                                    disabled={loading}
+                                                    className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={refreshData}
-                    disabled={loading}
-                    className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
-                  >
-                    <i data-lucide="refresh-cw" className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`}></i>
-                    Refresh
-                  </button>
-                  <button
-                    onClick={() => setShowSetup(true)}
-                    className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                  >
-                    <i data-lucide="settings" className="h-4 w-4 mr-2"></i>
-                    Settings
-                  </button>
+            );
+
+            const renderChartView = (data, title, timeKey) => (
+                <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-lg shadow border">
+                        <h3 className="text-xl font-semibold mb-6">{title}</h3>
+                        <ResponsiveContainer width="100%" height={400}>
+                            <BarChart data={data}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey={timeKey} />
+                                <YAxis />
+                                <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
+                                <Bar dataKey="income" fill="#10b981" name="Income" />
+                                <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
+                                <Bar dataKey="savings" fill="#3b82f6" name="Net Savings" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded-lg shadow border">
+                        <h3 className="text-xl font-semibold mb-6">Savings Trend</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={data}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey={timeKey} />
+                                <YAxis />
+                                <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
+                                <Line type="monotone" dataKey="savings" stroke="#3b82f6" strokeWidth={2} name="Savings" />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {currentView === 'monthly' && getCategoryData.length > 0 && (
+                        <div className="bg-white p-6 rounded-lg shadow border">
+                            <h3 className="text-xl font-semibold mb-6">Expenses by Category</h3>
+                            <ResponsiveContainer width="100%" height={400}>
+                                <PieChart>
+                                    <Pie
+                                        data={getCategoryData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={120}
+                                        fill="#8884d8"
+                                        dataKey="amount"
+                                    >
+                                        {getCategoryData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
                 </div>
-              </div>
-              {apiUrl && (
-                <div className="mt-2 flex items-center text-sm text-green-600">
-                  <i data-lucide="cloud" className="h-4 w-4 mr-1"></i>
-                  Connected to Google Sheets
+            );
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="mb-8">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Personal Budget Tracker</h1>
+                                    <p className="text-gray-600">Track your expenses, income, and savings with Google Sheets sync</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={refreshData}
+                                        disabled={loading}
+                                        className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
+                                    >
+                                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                                        Refresh
+                                    </button>
+                                    <button
+                                        onClick={() => setShowSetup(true)}
+                                        className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                                    >
+                                        <Settings className="h-4 w-4 mr-2" />
+                                        Settings
+                                    </button>
+                                </div>
+                            </div>
+                            {apiUrl && (
+                                <div className="mt-2 flex items-center text-sm text-green-600">
+                                    <Cloud className="h-4 w-4 mr-1" />
+                                    Connected to Google Sheets
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Navigation */}
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            {[
+                                { key: 'input', label: 'Input & Summary', icon: PlusCircle },
+                                { key: 'weekly', label: 'Weekly View', icon: Calendar },
+                                { key: 'monthly', label: 'Monthly View', icon: Calendar },
+                                { key: 'yearly', label: 'Yearly View', icon: Calendar }
+                            ].map(({ key, label, icon: Icon }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setCurrentView(key)}
+                                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                                        currentView === key
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <Icon className="h-4 w-4 mr-2" />
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Loading Indicator */}
+                        {loading && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                <div className="flex items-center">
+                                    <RefreshCw className="h-5 w-5 text-blue-500 animate-spin mr-2" />
+                                    <span className="text-blue-700">Syncing with Google Sheets...</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Content */}
+                        {currentView === 'input' && renderInputView()}
+                        {currentView === 'weekly' && renderChartView(getWeeklyData, 'Weekly Budget Overview', 'week')}
+                        {currentView === 'monthly' && renderChartView(getMonthlyData, 'Monthly Budget Overview', 'month')}
+                        {currentView === 'yearly' && renderChartView(getYearlyData, 'Yearly Budget Overview', 'year')}
+                    </div>
                 </div>
-              )}
-            </div>
+            );
+        };
 
-            {/* Navigation */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {[
-                { key: 'input', label: 'Input & Summary', icon: 'plus-circle' },
-                { key: 'weekly', label: 'Weekly View', icon: 'calendar' },
-                { key: 'monthly', label: 'Monthly View', icon: 'calendar' },
-                { key: 'yearly', label: 'Yearly View', icon: 'calendar' }
-              ].map(({ key, label, icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setCurrentView(key)}
-                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                    currentView === key
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <i data-lucide={icon} className="h-4 w-4 mr-2"></i>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Loading */}
-            {loading && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center">
-                  <i data-lucide="refresh-cw" className="h-5 w-5 text-blue-500 animate-spin mr-2"></i>
-                  <span className="text-blue-700">Syncing with Google Sheets...</span>
-                </div>
-              </div>
-            )}
-
-            {/* Content */}
-            {currentView === 'input' && renderInputView()}
-            {currentView === 'weekly' && renderChartView(getWeeklyData, 'Weekly Budget Overview', 'week')}
-            {currentView === 'monthly' && renderChartView(getMonthlyData, 'Monthly Budget Overview', 'month')}
-            {currentView === 'yearly' && renderChartView(getYearlyData, 'Yearly Budget Overview', 'year')}
-          </div>
-        </div>
-      );
-    }
-
-    // Render to DOM (React 18)
-    ReactDOM.createRoot(document.getElementById('root')).render(<BudgetTracker />);
-  </script>
+        ReactDOM.render(<BudgetTracker />, document.getElementById('root'));
+    </script>
 </body>
 </html>
