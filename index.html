@@ -4,20 +4,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Budget Tracker</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for icons */
+        .icon {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            vertical-align: middle;
+        }
+        .icon-lg {
+            width: 2em;
+            height: 2em;
+        }
+        .icon-xl {
+            width: 3em;
+            height: 3em;
+        }
+    </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useMemo, useEffect } = React;
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } = Recharts;
-        const { Calendar, DollarSign, PlusCircle, Trash2, TrendingUp, Wallet, Settings, RefreshCw, Cloud } = LucideReact;
+
+        // Simple SVG icons (no external dependencies)
+        const Icons = {
+            Cloud: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            ),
+            DollarSign: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+            ),
+            TrendingUp: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            ),
+            Wallet: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+            ),
+            PlusCircle: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+            ),
+            Trash2: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            ),
+            RefreshCw: ({ spinning }) => (
+                <svg className={`icon ${spinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            ),
+            Settings: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            ),
+            Calendar: () => (
+                <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            )
+        };
 
         const BudgetTracker = () => {
             const [expenses, setExpenses] = useState([]);
@@ -67,16 +130,22 @@
             const loadData = async (url) => {
                 setLoading(true);
                 try {
-                    const response = await fetch(url);
+                    // Use GET request to avoid CORS preflight
+                    const response = await fetch(url + '?action=getData', {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
                     const data = await response.json();
-                    if (data.expenses && data.income) {
-                        setExpenses(data.expenses);
-                        setIncome(data.income);
+                    if (data && data.success && data.expenses && data.income) {
+                        setExpenses(data.expenses.map(e => ({ ...e, amount: Number(e.amount) })));
+                        setIncome(data.income.map(i => ({ ...i, amount: Number(i.amount) })));
                     }
                 } catch (error) {
-                    alert('Failed to load data. Please check your API URL.');
+                    console.error('loadData error', error);
+                    alert('Failed to load data. Make sure your Google Apps Script is deployed with "Anyone" access.');
+                } finally {
+                    setLoading(false);
                 }
-                setLoading(false);
             };
 
             const apiCall = async (action, data = {}) => {
@@ -88,17 +157,22 @@
 
                 setLoading(true);
                 try {
+                    // Use form data to avoid CORS preflight
+                    const formData = new FormData();
+                    formData.append('action', action);
+                    Object.keys(data).forEach(key => {
+                        formData.append(key, data[key]);
+                    });
+
                     const response = await fetch(apiUrl, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ action, ...data })
+                        body: formData
                     });
                     const result = await response.json();
                     return result;
                 } catch (error) {
-                    alert('Failed to sync with Google Sheets. Please check your connection.');
+                    console.error('apiCall error', error);
+                    alert('Failed to sync with Google Sheets. Make sure your script is deployed with "Anyone" access.');
                     return null;
                 } finally {
                     setLoading(false);
@@ -165,123 +239,30 @@
                 }
             };
 
-            // Data processing functions
-            const getWeeklyData = useMemo(() => {
-                const weeklyExpenses = {};
-                const weeklyIncome = {};
-                
-                expenses.forEach(expense => {
-                    const date = new Date(expense.date);
-                    const weekStart = new Date(date);
-                    weekStart.setDate(date.getDate() - date.getDay());
-                    const weekKey = weekStart.toISOString().split('T')[0];
-                    
-                    if (!weeklyExpenses[weekKey]) weeklyExpenses[weekKey] = 0;
-                    weeklyExpenses[weekKey] += expense.amount;
-                });
+            // Calculate totals
+            const totalIncome = income.reduce((sum, inc) => sum + Number(inc.amount || 0), 0);
+            const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+            const totalSavings = totalIncome - totalExpenses;
 
-                income.forEach(inc => {
-                    const date = new Date(inc.date);
-                    const weekStart = new Date(date);
-                    weekStart.setDate(date.getDate() - date.getDay());
-                    const weekKey = weekStart.toISOString().split('T')[0];
-                    
-                    if (!weeklyIncome[weekKey]) weeklyIncome[weekKey] = 0;
-                    weeklyIncome[weekKey] += inc.amount;
-                });
-
-                const allWeeks = new Set([...Object.keys(weeklyExpenses), ...Object.keys(weeklyIncome)]);
-                
-                return Array.from(allWeeks).sort().map(week => ({
-                    week: `Week of ${new Date(week).toLocaleDateString()}`,
-                    expenses: weeklyExpenses[week] || 0,
-                    income: weeklyIncome[week] || 0,
-                    savings: (weeklyIncome[week] || 0) - (weeklyExpenses[week] || 0)
-                }));
-            }, [expenses, income]);
-
-            const getMonthlyData = useMemo(() => {
-                const monthlyExpenses = {};
-                const monthlyIncome = {};
-                
-                expenses.forEach(expense => {
-                    const date = new Date(expense.date);
-                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                    
-                    if (!monthlyExpenses[monthKey]) monthlyExpenses[monthKey] = 0;
-                    monthlyExpenses[monthKey] += expense.amount;
-                });
-
-                income.forEach(inc => {
-                    const date = new Date(inc.date);
-                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                    
-                    if (!monthlyIncome[monthKey]) monthlyIncome[monthKey] = 0;
-                    monthlyIncome[monthKey] += inc.amount;
-                });
-
-                const allMonths = new Set([...Object.keys(monthlyExpenses), ...Object.keys(monthlyIncome)]);
-                
-                return Array.from(allMonths).sort().map(month => ({
-                    month: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
-                    expenses: monthlyExpenses[month] || 0,
-                    income: monthlyIncome[month] || 0,
-                    savings: (monthlyIncome[month] || 0) - (monthlyExpenses[month] || 0)
-                }));
-            }, [expenses, income]);
-
-            const getYearlyData = useMemo(() => {
-                const yearlyExpenses = {};
-                const yearlyIncome = {};
-                
-                expenses.forEach(expense => {
-                    const year = new Date(expense.date).getFullYear();
-                    if (!yearlyExpenses[year]) yearlyExpenses[year] = 0;
-                    yearlyExpenses[year] += expense.amount;
-                });
-
-                income.forEach(inc => {
-                    const year = new Date(inc.date).getFullYear();
-                    if (!yearlyIncome[year]) yearlyIncome[year] = 0;
-                    yearlyIncome[year] += inc.amount;
-                });
-
-                const allYears = new Set([...Object.keys(yearlyExpenses), ...Object.keys(yearlyIncome)]);
-                
-                return Array.from(allYears).sort().map(year => ({
-                    year: year.toString(),
-                    expenses: yearlyExpenses[year] || 0,
-                    income: yearlyIncome[year] || 0,
-                    savings: (yearlyIncome[year] || 0) - (yearlyExpenses[year] || 0)
-                }));
-            }, [expenses, income]);
-
-            const getCategoryData = useMemo(() => {
+            // Calculate category data for simple display
+            const getCategoryTotals = useMemo(() => {
                 const categoryTotals = {};
                 expenses.forEach(expense => {
                     if (!categoryTotals[expense.category]) categoryTotals[expense.category] = 0;
-                    categoryTotals[expense.category] += expense.amount;
+                    categoryTotals[expense.category] += Number(expense.amount || 0);
                 });
-
-                return Object.entries(categoryTotals).map(([category, amount]) => ({
-                    category,
-                    amount
-                }));
+                return Object.entries(categoryTotals)
+                    .map(([category, amount]) => ({ category, amount }))
+                    .sort((a, b) => b.amount - a.amount);
             }, [expenses]);
-
-            const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
-            const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const totalSavings = totalIncome - totalExpenses;
-
-            const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
 
             if (showSetup) {
                 return (
                     <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
                         <div className="max-w-md w-full bg-white p-6 rounded-lg shadow">
                             <div className="text-center mb-6">
-                                <Cloud className="h-12 w-12 text-blue-500 mx-auto mb-2" />
-                                <h2 className="text-2xl font-bold text-gray-900">Connect to Google Sheets</h2>
+                                <Icons.Cloud />
+                                <h2 className="text-2xl font-bold text-gray-900 mt-4">Connect to Google Sheets</h2>
                                 <p className="text-gray-600 mt-2">Enter your Google Apps Script Web App URL to sync your budget data</p>
                             </div>
                             
@@ -303,7 +284,7 @@
                             
                             <div className="mt-4 p-4 bg-gray-50 rounded">
                                 <p className="text-sm text-gray-600">
-                                    <strong>Need help?</strong> Create a Google Apps Script with your spreadsheet, deploy it as a web app, and paste the URL here to sync your budget data.
+                                    <strong>Need help?</strong> Create a Google Apps Script with your spreadsheet, deploy it as a web app with "Anyone" access, and paste the URL here.
                                 </p>
                             </div>
                         </div>
@@ -317,7 +298,9 @@
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-green-50 p-6 rounded-lg border border-green-200">
                             <div className="flex items-center">
-                                <TrendingUp className="h-8 w-8 text-green-600 mr-3" />
+                                <div className="text-green-600 mr-3">
+                                    <Icons.TrendingUp />
+                                </div>
                                 <div>
                                     <p className="text-sm font-medium text-green-600">Total Income</p>
                                     <p className="text-2xl font-bold text-green-800">${totalIncome.toFixed(2)}</p>
@@ -326,7 +309,9 @@
                         </div>
                         <div className="bg-red-50 p-6 rounded-lg border border-red-200">
                             <div className="flex items-center">
-                                <DollarSign className="h-8 w-8 text-red-600 mr-3" />
+                                <div className="text-red-600 mr-3">
+                                    <Icons.DollarSign />
+                                </div>
                                 <div>
                                     <p className="text-sm font-medium text-red-600">Total Expenses</p>
                                     <p className="text-2xl font-bold text-red-800">${totalExpenses.toFixed(2)}</p>
@@ -335,7 +320,9 @@
                         </div>
                         <div className={`p-6 rounded-lg border ${totalSavings >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
                             <div className="flex items-center">
-                                <Wallet className={`h-8 w-8 mr-3 ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
+                                <div className={`mr-3 ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    <Icons.Wallet />
+                                </div>
                                 <div>
                                     <p className={`text-sm font-medium ${totalSavings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                                         {totalSavings >= 0 ? 'Total Savings' : 'Budget Deficit'}
@@ -351,7 +338,9 @@
                     {/* Income Input */}
                     <div className="bg-white p-6 rounded-lg shadow border">
                         <h3 className="text-lg font-semibold mb-4 flex items-center">
-                            <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                            <div className="text-green-600 mr-2">
+                                <Icons.TrendingUp />
+                            </div>
                             Add Income
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -381,7 +370,9 @@
                                 disabled={loading}
                                 className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center justify-center disabled:opacity-50"
                             >
-                                <PlusCircle className="h-4 w-4 mr-2" />
+                                <div className="mr-2">
+                                    <Icons.PlusCircle />
+                                </div>
                                 Add Income
                             </button>
                         </div>
@@ -397,7 +388,9 @@
                     {/* Expense Input */}
                     <div className="bg-white p-6 rounded-lg shadow border">
                         <h3 className="text-lg font-semibold mb-4 flex items-center">
-                            <DollarSign className="h-5 w-5 mr-2 text-red-600" />
+                            <div className="text-red-600 mr-2">
+                                <Icons.DollarSign />
+                            </div>
                             Add Expense
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -430,7 +423,9 @@
                                 disabled={loading}
                                 className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors flex items-center justify-center disabled:opacity-50"
                             >
-                                <PlusCircle className="h-4 w-4 mr-2" />
+                                <div className="mr-2">
+                                    <Icons.PlusCircle />
+                                </div>
                                 Add Expense
                             </button>
                         </div>
@@ -442,6 +437,21 @@
                             className="w-full mt-3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
+
+                    {/* Category Summary */}
+                    {getCategoryTotals.length > 0 && (
+                        <div className="bg-white p-6 rounded-lg shadow border">
+                            <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
+                            <div className="space-y-3">
+                                {getCategoryTotals.map(({ category, amount }) => (
+                                    <div key={category} className="flex justify-between items-center">
+                                        <span className="text-gray-700">{category}</span>
+                                        <span className="font-bold text-red-600">${amount.toFixed(2)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Recent Transactions */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -460,13 +470,13 @@
                                                 {inc.description && <p className="text-sm text-gray-500">{inc.description}</p>}
                                             </div>
                                             <div className="flex items-center">
-                                                <span className="text-green-600 font-bold mr-2">${inc.amount.toFixed(2)}</span>
+                                                <span className="text-green-600 font-bold mr-2">${Number(inc.amount).toFixed(2)}</span>
                                                 <button
                                                     onClick={() => removeIncome(inc.id)}
                                                     disabled={loading}
                                                     className="text-red-500 hover:text-red-700 disabled:opacity-50"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Icons.Trash2 />
                                                 </button>
                                             </div>
                                         </div>
@@ -490,13 +500,13 @@
                                                 {expense.description && <p className="text-sm text-gray-500">{expense.description}</p>}
                                             </div>
                                             <div className="flex items-center">
-                                                <span className="text-red-600 font-bold mr-2">${expense.amount.toFixed(2)}</span>
+                                                <span className="text-red-600 font-bold mr-2">${Number(expense.amount).toFixed(2)}</span>
                                                 <button
                                                     onClick={() => removeExpense(expense.id)}
                                                     disabled={loading}
                                                     className="text-red-500 hover:text-red-700 disabled:opacity-50"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Icons.Trash2 />
                                                 </button>
                                             </div>
                                         </div>
@@ -508,62 +518,131 @@
                 </div>
             );
 
-            const renderChartView = (data, title, timeKey) => (
+            const renderListView = (title, timeData) => (
                 <div className="space-y-6">
                     <div className="bg-white p-6 rounded-lg shadow border">
                         <h3 className="text-xl font-semibold mb-6">{title}</h3>
-                        <ResponsiveContainer width="100%" height={400}>
-                            <BarChart data={data}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey={timeKey} />
-                                <YAxis />
-                                <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
-                                <Bar dataKey="income" fill="#10b981" name="Income" />
-                                <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
-                                <Bar dataKey="savings" fill="#3b82f6" name="Net Savings" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                    
-                    <div className="bg-white p-6 rounded-lg shadow border">
-                        <h3 className="text-xl font-semibold mb-6">Savings Trend</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={data}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey={timeKey} />
-                                <YAxis />
-                                <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
-                                <Line type="monotone" dataKey="savings" stroke="#3b82f6" strokeWidth={2} name="Savings" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {currentView === 'monthly' && getCategoryData.length > 0 && (
-                        <div className="bg-white p-6 rounded-lg shadow border">
-                            <h3 className="text-xl font-semibold mb-6">Expenses by Category</h3>
-                            <ResponsiveContainer width="100%" height={400}>
-                                <PieChart>
-                                    <Pie
-                                        data={getCategoryData}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={120}
-                                        fill="#8884d8"
-                                        dataKey="amount"
-                                    >
-                                        {getCategoryData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value) => [`$${value.toFixed(2)}`]} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-gray-200">
+                                        <th className="text-left py-2">Period</th>
+                                        <th className="text-right py-2 text-green-600">Income</th>
+                                        <th className="text-right py-2 text-red-600">Expenses</th>
+                                        <th className="text-right py-2 text-blue-600">Net Savings</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {timeData.map((row, index) => (
+                                        <tr key={index} className="border-b border-gray-100">
+                                            <td className="py-2">{row.period}</td>
+                                            <td className="text-right py-2 text-green-600">${row.income.toFixed(2)}</td>
+                                            <td className="text-right py-2 text-red-600">${row.expenses.toFixed(2)}</td>
+                                            <td className={`text-right py-2 font-bold ${row.savings >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                ${row.savings.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                    )}
+                    </div>
                 </div>
             );
+
+            // Process data for different time views
+            const getWeeklyData = () => {
+                const weeklyData = {};
+                
+                // Process expenses
+                expenses.forEach(expense => {
+                    const date = new Date(expense.date);
+                    const weekStart = new Date(date);
+                    weekStart.setDate(date.getDate() - date.getDay());
+                    const weekKey = weekStart.toISOString().split('T')[0];
+                    
+                    if (!weeklyData[weekKey]) weeklyData[weekKey] = { income: 0, expenses: 0 };
+                    weeklyData[weekKey].expenses += Number(expense.amount);
+                });
+
+                // Process income
+                income.forEach(inc => {
+                    const date = new Date(inc.date);
+                    const weekStart = new Date(date);
+                    weekStart.setDate(date.getDate() - date.getDay());
+                    const weekKey = weekStart.toISOString().split('T')[0];
+                    
+                    if (!weeklyData[weekKey]) weeklyData[weekKey] = { income: 0, expenses: 0 };
+                    weeklyData[weekKey].income += Number(inc.amount);
+                });
+
+                return Object.entries(weeklyData)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([week, data]) => ({
+                        period: `Week of ${new Date(week).toLocaleDateString()}`,
+                        income: data.income,
+                        expenses: data.expenses,
+                        savings: data.income - data.expenses
+                    }));
+            };
+
+            const getMonthlyData = () => {
+                const monthlyData = {};
+                
+                // Process expenses
+                expenses.forEach(expense => {
+                    const date = new Date(expense.date);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyData[monthKey]) monthlyData[monthKey] = { income: 0, expenses: 0 };
+                    monthlyData[monthKey].expenses += Number(expense.amount);
+                });
+
+                // Process income
+                income.forEach(inc => {
+                    const date = new Date(inc.date);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyData[monthKey]) monthlyData[monthKey] = { income: 0, expenses: 0 };
+                    monthlyData[monthKey].income += Number(inc.amount);
+                });
+
+                return Object.entries(monthlyData)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([month, data]) => ({
+                        period: new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+                        income: data.income,
+                        expenses: data.expenses,
+                        savings: data.income - data.expenses
+                    }));
+            };
+
+            const getYearlyData = () => {
+                const yearlyData = {};
+                
+                // Process expenses
+                expenses.forEach(expense => {
+                    const year = new Date(expense.date).getFullYear();
+                    if (!yearlyData[year]) yearlyData[year] = { income: 0, expenses: 0 };
+                    yearlyData[year].expenses += Number(expense.amount);
+                });
+
+                // Process income
+                income.forEach(inc => {
+                    const year = new Date(inc.date).getFullYear();
+                    if (!yearlyData[year]) yearlyData[year] = { income: 0, expenses: 0 };
+                    yearlyData[year].income += Number(inc.amount);
+                });
+
+                return Object.entries(yearlyData)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([year, data]) => ({
+                        period: year,
+                        income: data.income,
+                        expenses: data.expenses,
+                        savings: data.income - data.expenses
+                    }));
+            };
 
             return (
                 <div className="min-h-screen bg-gray-50 p-4">
@@ -580,21 +659,27 @@
                                         disabled={loading}
                                         className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors disabled:opacity-50"
                                     >
-                                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                                        <div className="mr-2">
+                                            <Icons.RefreshCw spinning={loading} />
+                                        </div>
                                         Refresh
                                     </button>
                                     <button
                                         onClick={() => setShowSetup(true)}
                                         className="flex items-center px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
                                     >
-                                        <Settings className="h-4 w-4 mr-2" />
+                                        <div className="mr-2">
+                                            <Icons.Settings />
+                                        </div>
                                         Settings
                                     </button>
                                 </div>
                             </div>
                             {apiUrl && (
                                 <div className="mt-2 flex items-center text-sm text-green-600">
-                                    <Cloud className="h-4 w-4 mr-1" />
+                                    <div className="mr-1">
+                                        <Icons.Cloud />
+                                    </div>
                                     Connected to Google Sheets
                                 </div>
                             )}
@@ -603,11 +688,11 @@
                         {/* Navigation */}
                         <div className="flex flex-wrap gap-2 mb-6">
                             {[
-                                { key: 'input', label: 'Input & Summary', icon: PlusCircle },
-                                { key: 'weekly', label: 'Weekly View', icon: Calendar },
-                                { key: 'monthly', label: 'Monthly View', icon: Calendar },
-                                { key: 'yearly', label: 'Yearly View', icon: Calendar }
-                            ].map(({ key, label, icon: Icon }) => (
+                                { key: 'input', label: 'Input & Summary', icon: 'PlusCircle' },
+                                { key: 'weekly', label: 'Weekly View', icon: 'Calendar' },
+                                { key: 'monthly', label: 'Monthly View', icon: 'Calendar' },
+                                { key: 'yearly', label: 'Yearly View', icon: 'Calendar' }
+                            ].map(({ key, label, icon }) => (
                                 <button
                                     key={key}
                                     onClick={() => setCurrentView(key)}
@@ -617,7 +702,9 @@
                                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                                     }`}
                                 >
-                                    <Icon className="h-4 w-4 mr-2" />
+                                    <div className="mr-2">
+                                        {React.createElement(Icons[icon])}
+                                    </div>
                                     {label}
                                 </button>
                             ))}
@@ -627,7 +714,9 @@
                         {loading && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                                 <div className="flex items-center">
-                                    <RefreshCw className="h-5 w-5 text-blue-500 animate-spin mr-2" />
+                                    <div className="mr-2">
+                                        <Icons.RefreshCw spinning={true} />
+                                    </div>
                                     <span className="text-blue-700">Syncing with Google Sheets...</span>
                                 </div>
                             </div>
@@ -635,15 +724,15 @@
 
                         {/* Content */}
                         {currentView === 'input' && renderInputView()}
-                        {currentView === 'weekly' && renderChartView(getWeeklyData, 'Weekly Budget Overview', 'week')}
-                        {currentView === 'monthly' && renderChartView(getMonthlyData, 'Monthly Budget Overview', 'month')}
-                        {currentView === 'yearly' && renderChartView(getYearlyData, 'Yearly Budget Overview', 'year')}
+                        {currentView === 'weekly' && renderListView('Weekly Budget Overview', getWeeklyData())}
+                        {currentView === 'monthly' && renderListView('Monthly Budget Overview', getMonthlyData())}
+                        {currentView === 'yearly' && renderListView('Yearly Budget Overview', getYearlyData())}
                     </div>
                 </div>
             );
         };
 
-        ReactDOM.render(<BudgetTracker />, document.getElementById('root'));
+        ReactDOM.render(React.createElement(BudgetTracker), document.getElementById('root'));
     </script>
 </body>
 </html>
