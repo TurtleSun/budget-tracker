@@ -73,6 +73,7 @@
       // Load API URL and data on mount
       useEffect(() => {
         const savedUrl = localStorage.getItem('budgetTrackerApiUrl');
+        console.log(savedUrl);
         if (savedUrl) {
           setApiUrl(savedUrl);
           setShowSetup(false);
